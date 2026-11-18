@@ -391,18 +391,18 @@ function closeSheet(id) {
 }
 document.querySelectorAll("[data-close]").forEach(btn => {
   btn.addEventListener("click", () => {
-    closeSheet("txBackdrop"); closeSheet("goalBackdrop"); closeSheet("budgetBackdrop");
+    closeSheet("txBackdrop"); closeSheet("goalBackdrop"); closeSheet("budgetBackdrop"); closeSheet("ocrBackdrop");
   });
 });
-["txBackdrop", "goalBackdrop", "budgetBackdrop"].forEach(id => {
+["txBackdrop", "goalBackdrop", "budgetBackdrop", "ocrBackdrop"].forEach(id => {
   document.getElementById(id).addEventListener("click", e => {
     if (e.target.id === id) closeSheet(id);
   });
 });
 document.addEventListener("keydown", e => {
-  if (e.key === "Escape") { closeSheet("txBackdrop"); closeSheet("goalBackdrop"); closeSheet("budgetBackdrop"); return; }
+  if (e.key === "Escape") { closeSheet("txBackdrop"); closeSheet("goalBackdrop"); closeSheet("budgetBackdrop"); closeSheet("ocrBackdrop"); return; }
   if (e.key !== "Tab") return;
-  const open = ["txBackdrop", "goalBackdrop", "budgetBackdrop"]
+  const open = ["txBackdrop", "goalBackdrop", "budgetBackdrop", "ocrBackdrop"]
     .map(i => document.getElementById(i))
     .find(w => !w.hidden);
   if (!open) return;
@@ -466,6 +466,9 @@ function openTx(preset) {
   setTxType(preset.type || "out");
   if (preset.cat) { txCat = preset.cat; renderTxCats(); syncGoalPick(); }
   if (preset.goalId) document.getElementById("txGoal").value = preset.goalId;
+  if (preset.amount) document.getElementById("txAmount").value = NUM_FMT.format(preset.amount);
+  if (preset.note) document.getElementById("txNote").value = preset.note;
+  if (preset.date) document.getElementById("txDate").value = preset.date;
   openSheet("txBackdrop");
   setTimeout(() => document.getElementById("txAmount").focus(), 60);
 }
@@ -597,6 +600,159 @@ document.getElementById("wipeData").addEventListener("click", () => {
   if (!confirm("Hapus SEMUA data DuitKita di perangkat ini? Tindakan ini tidak bisa dibatalkan.")) return;
   state = { txs: [], goals: [], budget: 0 };
   save(); render(); toast("Semua data dihapus");
+});
+
+/* ---------- scan struk (OCR lokal) ----------
+   Mesin OCR (Tesseract.js + data bahasa) dibundel di folder ocr/, jadi foto
+   struk TIDAK pernah meninggalkan perangkat dan app tetap tanpa internet.
+   Hasil baca hanya mengisi form transaksi; user meninjau lalu menyimpan
+   sendiri. Yang diandalkan cuma total + tanggal + nama toko: rincian per
+   item dari struk thermal terlalu sering berantakan untuk dipercaya. */
+function parseAmountToken(tok) {
+  if (!tok) return 0;
+  const s = String(tok).replace(/[^0-9.,]/g, "");
+  if (!s) return 0;
+  // Format Indonesia: titik pemisah ribuan, koma desimal.
+  if (/^\d{1,3}(\.\d{3})+(,\d{1,2})?$/.test(s)) return parseInt(s.replace(/\./g, "").split(",")[0], 10);
+  if (/^\d+,\d{1,2}$/.test(s)) return Math.round(parseFloat(s.replace(",", ".")));
+  if (/^\d+$/.test(s)) return s.length <= 10 ? parseInt(s, 10) : 0;
+  if (/^\d+\.\d{1,2}$/.test(s)) return Math.round(parseFloat(s));
+  const digits = s.replace(/\D/g, "");
+  return digits && digits.length <= 10 ? parseInt(digits, 10) : 0;
+}
+function lineAmount(line) {
+  const toks = String(line).match(/\d[\d.,]*\d|\d/g) || [];
+  let best = 0;
+  toks.forEach(t => { const v = parseAmountToken(t); if (v > best) best = v; });
+  return best;
+}
+const MONTH_ID = { jan: 1, feb: 2, mar: 3, apr: 4, mei: 5, jun: 6, jul: 7, agu: 8, ags: 8, sep: 9, okt: 10, nov: 11, des: 12 };
+function parseReceiptDate(text, todayKey) {
+  let m = text.match(/(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
+  if (m) {
+    let d = +m[1], mo = +m[2], y = +m[3];
+    if (y < 100) y += 2000;
+    if (mo > 12 && d <= 12) { const tmp = d; d = mo; mo = tmp; }
+    if (d >= 1 && d <= 31 && mo >= 1 && mo <= 12 && y >= 2000 && y <= 2100)
+      return y + "-" + String(mo).padStart(2, "0") + "-" + String(d).padStart(2, "0");
+  }
+  m = text.match(/(\d{1,2})\s+(jan|feb|mar|apr|mei|jun|jul|agu|ags|sep|okt|nov|des)[a-z]*\s+(\d{4})/i);
+  if (m) {
+    const mo = MONTH_ID[m[2].slice(0, 3).toLowerCase()];
+    if (mo) return m[3] + "-" + String(mo).padStart(2, "0") + "-" + String(+m[1]).padStart(2, "0");
+  }
+  return todayKey;
+}
+function parseReceiptText(text, todayKey) {
+  const lines = String(text).split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+  let total = 0;
+  lines.forEach(l => {
+    const u = l.toUpperCase();
+    if (/TOTAL|JUMLAH/.test(u) && !/SUB/.test(u)) {
+      const v = lineAmount(l);
+      if (v > 0) total = v;
+    }
+  });
+  if (!total) {
+    // Cadangan: nominal terbesar, lewati baris uang tunai/kembalian.
+    lines.forEach(l => {
+      if (/TUNAI|KEMBALI|CHANGE|CASH/.test(l.toUpperCase())) return;
+      const v = lineAmount(l);
+      if (v > total) total = v;
+    });
+  }
+  const merchant = lines.length ? lines[0].replace(/\s+/g, " ").slice(0, 40) : "";
+  return { total: total, date: parseReceiptDate(String(text), todayKey), merchant: merchant };
+}
+
+const OCR_BASE = new URL("ocr/", window.location.href).href;
+let ocrWorker = null;
+let ocrCancel = false;
+function setOcrStatus(text, pct) {
+  document.getElementById("ocrStatus").textContent = text;
+  document.getElementById("ocrBarFill").style.width = (pct || 0) + "%";
+}
+function loadTesseract() {
+  return new Promise((resolve, reject) => {
+    if (window.Tesseract) return resolve();
+    const s = document.createElement("script");
+    s.src = OCR_BASE + "tesseract.min.js";
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error("lib gagal dimuat"));
+    document.head.appendChild(s);
+  });
+}
+async function getOcrWorker() {
+  if (ocrWorker) return ocrWorker;
+  ocrWorker = await Tesseract.createWorker("ind+eng", Tesseract.OEM.LSTM_ONLY, {
+    workerPath: OCR_BASE + "worker.min.js",
+    corePath: OCR_BASE,
+    langPath: OCR_BASE,
+    logger: m => {
+      if (m.status === "recognizing text") setOcrStatus("Membaca struk... " + Math.round(m.progress * 100) + "%", Math.round(m.progress * 100));
+    }
+  });
+  return ocrWorker;
+}
+function fileToScaledCanvas(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, 1400 / img.naturalWidth);
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.naturalWidth * scale);
+      c.height = Math.round(img.naturalHeight * scale);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      resolve(c);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("gambar gagal dibuka")); };
+    img.src = url;
+  });
+}
+function ocrAborted() {
+  return ocrCancel || document.getElementById("ocrBackdrop").hidden;
+}
+document.getElementById("receiptFile").addEventListener("change", async e => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+  ocrCancel = false;
+  openSheet("ocrBackdrop");
+  setOcrStatus("Menyiapkan mesin baca...", 0);
+  try {
+    await loadTesseract();
+    if (ocrAborted()) return;
+    setOcrStatus("Memuat data bahasa...", 0);
+    const worker = await getOcrWorker();
+    if (ocrAborted()) return;
+    const canvas = await fileToScaledCanvas(file);
+    const result = await worker.recognize(canvas);
+    if (ocrAborted()) return;
+    const parsed = parseReceiptText(result.data.text, dateKey(new Date()));
+    closeSheet("ocrBackdrop");
+    if (!parsed.total) {
+      toast("Total struk nggak kebaca. Coba foto lebih terang dan lurus.");
+      return;
+    }
+    openTx({ type: "out", amount: parsed.total, note: parsed.merchant, date: parsed.date });
+    toast("Struk terbaca, cek dulu sebelum simpan");
+  } catch (err) {
+    if (!ocrAborted()) {
+      closeSheet("ocrBackdrop");
+      toast("Gagal membaca struk di perangkat ini.");
+    }
+  }
+});
+document.getElementById("ocrCancelBtn").addEventListener("click", async () => {
+  ocrCancel = true;
+  if (ocrWorker) {
+    const w = ocrWorker;
+    ocrWorker = null;
+    try { await w.terminate(); } catch (err) { /* abaikan */ }
+  }
+  closeSheet("ocrBackdrop");
 });
 
 /* ---------- tema tampilan ----------

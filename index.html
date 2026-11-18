@@ -7,8 +7,8 @@
 <meta name="description" content="Catatan keuangan pribadi: data tersimpan di perangkatmu, tanpa server, tanpa akun.">
 <meta name="theme-color" content="#FFF8E7">
 <script>try{var t=localStorage.getItem("duitkita-theme");if(t){document.documentElement.dataset.theme=t;}}catch(e){}</script>
-<link rel="stylesheet" href="styles.css?v=6">
-<script src="app.js?v=6" defer></script>
+<link rel="stylesheet" href="styles.css?v=7">
+<script src="app.js?v=7" defer></script>
 </head>
 <body>
 <div class="phone">
@@ -84,6 +84,8 @@
         <p class="data-text">Semua catatan tersimpan di penyimpanan lokal browser ini. Tidak ada server, tidak ada akun. Cadangkan secara berkala supaya aman saat ganti perangkat.</p>
         <div class="data-actions">
           <button type="button" class="chipbtn" id="exportCsv">Export CSV</button>
+          <label class="chipbtn" for="receiptFile">Scan struk</label>
+          <input type="file" id="receiptFile" accept="image/*" hidden>
           <button type="button" class="chipbtn" id="exportJson">Backup JSON</button>
           <label class="chipbtn" for="importFile">Import JSON</label>
           <input type="file" id="importFile" accept="application/json" hidden>
@@ -194,6 +196,20 @@
     <button type="button" class="savebtn" id="budgetSave">Simpan pagu</button>
     <button type="button" class="widebtn" id="budgetClear" hidden>Hapus pagu</button>
     <p class="form-error" id="budgetError" hidden></p>
+  </div>
+</div>
+
+<!-- SHEET: proses OCR struk -->
+<div class="sheet-backdrop" id="ocrBackdrop" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="ocrTitle">
+    <div class="sheet-head">
+      <h2 id="ocrTitle">Membaca struk</h2>
+      <button type="button" class="iconbtn" data-close aria-label="Tutup">✕</button>
+    </div>
+    <p class="data-text">Foto dibaca di perangkat ini juga, tidak dikirim ke mana-mana. Hasilnya cuma mengisi form transaksi, kamu tetap meninjau sebelum menyimpan.</p>
+    <div class="goal-bar"><div class="goal-fill" id="ocrBarFill" style="width:0%;background:var(--coral)"></div></div>
+    <p class="allow-sub" id="ocrStatus">Menyiapkan...</p>
+    <button type="button" class="widebtn" id="ocrCancelBtn">Batalkan</button>
   </div>
 </div>
 
