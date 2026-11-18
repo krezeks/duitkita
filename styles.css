@@ -332,3 +332,13 @@ input,select{font:inherit;color:inherit}
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{animation:none!important;transition:none!important}
 }
+
+/* Jatah aman harian (kartu pagu di Beranda) */
+.allow-card{display:flex;flex-direction:column;gap:8px}
+.allow-card .chipbtn{align-self:flex-start}
+.allow-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.allow-label{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-soft)}
+.allow-value{font-size:30px;font-weight:800;color:var(--ink);line-height:1.15}
+.allow-text{font-size:13.5px;color:var(--ink-soft);line-height:1.5}
+.allow-sub{font-size:13px;color:var(--ink)}
+.allow-note{font-size:12px;color:var(--ink-soft)}

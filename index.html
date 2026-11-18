@@ -7,8 +7,8 @@
 <meta name="description" content="Catatan keuangan pribadi: data tersimpan di perangkatmu, tanpa server, tanpa akun.">
 <meta name="theme-color" content="#FFF8E7">
 <script>try{var t=localStorage.getItem("duitkita-theme");if(t){document.documentElement.dataset.theme=t;}}catch(e){}</script>
-<link rel="stylesheet" href="styles.css?v=5">
-<script src="app.js?v=5" defer></script>
+<link rel="stylesheet" href="styles.css?v=6">
+<script src="app.js?v=6" defer></script>
 </head>
 <body>
 <div class="phone">
@@ -53,6 +53,8 @@
           <p class="stat-value" id="statAvg">Rp0</p>
         </article>
       </div>
+
+      <article class="card allow-card" id="allowCard"></article>
 
       <div class="section-head">
         <h2>Target tabungan</h2>
@@ -176,6 +178,22 @@
     <input type="date" id="goalDate" class="text-input">
     <button type="button" class="savebtn" id="goalSave">Simpan target</button>
     <p class="form-error" id="goalError" hidden></p>
+  </div>
+</div>
+
+<!-- SHEET: pagu bulanan -->
+<div class="sheet-backdrop" id="budgetBackdrop" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="budgetTitle">
+    <div class="sheet-head">
+      <h2 id="budgetTitle">Pagu belanja bulanan</h2>
+      <button type="button" class="iconbtn" data-close aria-label="Tutup">✕</button>
+    </div>
+    <p class="data-text">Jatah aman harian dihitung dari pagu ini: sisa pagu dibagi sisa hari bulan ini. Kategori Tabungan tidak dihitung sebagai belanja.</p>
+    <label class="field-label" for="budgetAmount">Pagu per bulan (Rp)</label>
+    <input type="text" inputmode="numeric" id="budgetAmount" class="amount-input" placeholder="0" autocomplete="off">
+    <button type="button" class="savebtn" id="budgetSave">Simpan pagu</button>
+    <button type="button" class="widebtn" id="budgetClear" hidden>Hapus pagu</button>
+    <p class="form-error" id="budgetError" hidden></p>
   </div>
 </div>
 

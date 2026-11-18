@@ -17,12 +17,12 @@ let historyFilter = "all";
 function load() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { txs: [], goals: [] };
+    if (!raw) return { txs: [], goals: [], budget: 0 };
     const data = JSON.parse(raw);
-    if (!Array.isArray(data.txs) || !Array.isArray(data.goals)) return { txs: [], goals: [] };
+    if (!Array.isArray(data.txs) || !Array.isArray(data.goals)) return { txs: [], goals: [], budget: 0 };
     return sanitizeState(data).state;
   } catch (e) {
-    return { txs: [], goals: [] };
+    return { txs: [], goals: [], budget: 0 };
   }
 }
 function save() {
@@ -100,7 +100,9 @@ function sanitizeState(data) {
     if (!clean) { dropped++; return; }
     txs.push(clean);
   });
-  return { state: { txs, goals }, dropped };
+  const rawBudget = Number(data.budget);
+  const budget = Number.isFinite(rawBudget) && rawBudget > 0 ? Math.round(rawBudget) : 0;
+  return { state: { txs, goals, budget }, dropped };
 }
 function rp(n) {
   const sign = n < 0 ? "-" : "";
@@ -122,6 +124,57 @@ function goalSaved(goalId) {
   return state.txs
     .filter(t => t.goalId === goalId)
     .reduce((sum, t) => sum + t.amount, 0);
+}
+
+/* ---------- jatah aman harian ----------
+   Dari pagu belanja bulanan: sisa pagu dibagi sisa hari bulan ini (termasuk
+   hari ini), dibulatkan ke bawah supaya angkanya tidak pernah menjanjikan
+   lebih dari sisa pagu. Kategori Tabungan tidak dihitung sebagai belanja:
+   itu uang yang dipindahkan ke target, bukan dibelanjakan. Selalu dihitung
+   untuk bulan berjalan yang sebenarnya, bukan bulan yang sedang dilihat. */
+function dailyAllowance(now) {
+  const budget = state.budget || 0;
+  if (!budget) return null;
+  const spent = state.txs
+    .filter(t => t.type === "out" && t.cat !== "Tabungan" && sameMonth(new Date(t.date + "T12:00:00"), now))
+    .reduce((s, t) => s + t.amount, 0);
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const daysLeft = daysInMonth - now.getDate() + 1;
+  const remaining = budget - spent;
+  return {
+    budget: budget,
+    spent: spent,
+    remaining: remaining,
+    daysLeft: daysLeft,
+    perDay: remaining > 0 ? Math.floor(remaining / daysLeft) : 0,
+    pct: Math.min(100, Math.round(spent / budget * 100))
+  };
+}
+function renderAllowance() {
+  const card = document.getElementById("allowCard");
+  const a = dailyAllowance(new Date());
+  if (!a) {
+    card.innerHTML =
+      '<p class="allow-label">Jatah aman harian</p>' +
+      '<p class="allow-text">Atur pagu belanja bulanan, nanti di sini muncul angka aman dibelanjakan tiap hari. Hemat hari ini, jatah besok naik.</p>' +
+      '<button type="button" class="chipbtn" id="allowSet">Atur pagu</button>';
+    document.getElementById("allowSet").addEventListener("click", openBudget);
+    return;
+  }
+  const sub = a.remaining > 0
+    ? "Sisa pagu " + rp(a.remaining) + " dari " + rp(a.budget) + " · " + a.daysLeft + " hari lagi bulan ini"
+    : a.remaining === 0
+      ? "Pagu " + rp(a.budget) + " bulan ini pas habis"
+      : "Pagu " + rp(a.budget) + " bulan ini sudah lewat " + rp(-a.remaining);
+  card.innerHTML =
+    '<div class="allow-top"><div>' +
+    '<p class="allow-label">Aman dibelanjakan hari ini</p>' +
+    '<p class="allow-value">' + rp(a.perDay) + "</p>" +
+    '</div><button type="button" class="linkbtn" id="allowEdit">Ubah pagu</button></div>' +
+    '<p class="allow-sub">' + esc(sub) + "</p>" +
+    '<div class="goal-bar"><div class="goal-fill" style="width:' + a.pct + '%;background:var(--coral)"></div></div>' +
+    '<p class="allow-note">Terpakai ' + a.pct + '% dari pagu · kategori Tabungan tidak dihitung belanja</p>';
+  document.getElementById("allowEdit").addEventListener("click", openBudget);
 }
 function esc(s) {
   return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -162,6 +215,8 @@ function renderHome() {
     ? now.getDate()
     : new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0).getDate();
   document.getElementById("statAvg").textContent = rp(daysDivisor ? expense / daysDivisor : 0);
+
+  renderAllowance();
 
   const homeGoals = document.getElementById("homeGoals");
   if (state.goals.length === 0) {
@@ -336,18 +391,18 @@ function closeSheet(id) {
 }
 document.querySelectorAll("[data-close]").forEach(btn => {
   btn.addEventListener("click", () => {
-    closeSheet("txBackdrop"); closeSheet("goalBackdrop");
+    closeSheet("txBackdrop"); closeSheet("goalBackdrop"); closeSheet("budgetBackdrop");
   });
 });
-["txBackdrop", "goalBackdrop"].forEach(id => {
+["txBackdrop", "goalBackdrop", "budgetBackdrop"].forEach(id => {
   document.getElementById(id).addEventListener("click", e => {
     if (e.target.id === id) closeSheet(id);
   });
 });
 document.addEventListener("keydown", e => {
-  if (e.key === "Escape") { closeSheet("txBackdrop"); closeSheet("goalBackdrop"); return; }
+  if (e.key === "Escape") { closeSheet("txBackdrop"); closeSheet("goalBackdrop"); closeSheet("budgetBackdrop"); return; }
   if (e.key !== "Tab") return;
-  const open = ["txBackdrop", "goalBackdrop"]
+  const open = ["txBackdrop", "goalBackdrop", "budgetBackdrop"]
     .map(i => document.getElementById(i))
     .find(w => !w.hidden);
   if (!open) return;
@@ -464,6 +519,29 @@ document.getElementById("goalSave").addEventListener("click", () => {
   toast("Target dibuat");
 });
 
+/* ---------- pagu bulanan (jatah aman harian) ---------- */
+bindAmountInput(document.getElementById("budgetAmount"));
+function openBudget() {
+  document.getElementById("budgetError").hidden = true;
+  document.getElementById("budgetAmount").value = state.budget ? NUM_FMT.format(state.budget) : "";
+  document.getElementById("budgetClear").hidden = !state.budget;
+  openSheet("budgetBackdrop");
+  setTimeout(() => document.getElementById("budgetAmount").focus(), 60);
+}
+document.getElementById("budgetSave").addEventListener("click", () => {
+  const err = document.getElementById("budgetError");
+  const amount = amountValue(document.getElementById("budgetAmount"));
+  if (!amount) { err.textContent = "Pagunya masih kosong."; err.hidden = false; return; }
+  state.budget = amount;
+  save(); render(); closeSheet("budgetBackdrop");
+  toast("Pagu disimpan");
+});
+document.getElementById("budgetClear").addEventListener("click", () => {
+  state.budget = 0;
+  save(); render(); closeSheet("budgetBackdrop");
+  toast("Pagu dihapus");
+});
+
 /* ---------- data: export, import, wipe ---------- */
 function download(filename, text, mime) {
   const blob = new Blob([text], { type: mime });
@@ -517,7 +595,7 @@ document.getElementById("importFile").addEventListener("change", e => {
 });
 document.getElementById("wipeData").addEventListener("click", () => {
   if (!confirm("Hapus SEMUA data DuitKita di perangkat ini? Tindakan ini tidak bisa dibatalkan.")) return;
-  state = { txs: [], goals: [] };
+  state = { txs: [], goals: [], budget: 0 };
   save(); render(); toast("Semua data dihapus");
 });
 
