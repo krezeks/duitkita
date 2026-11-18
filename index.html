@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DuitKita · Catatan Keuangan</title>
+<meta name="description" content="Catatan keuangan pribadi: data tersimpan di perangkatmu, tanpa server, tanpa akun.">
+<link rel="stylesheet" href="styles.css">
+<script src="app.js" defer></script>
+</head>
+<body>
+<div class="phone">
+
+  <header class="topbar">
+    <div>
+      <p class="greet">Halo, taz</p>
+      <h1 class="brand">DuitKita</h1>
+    </div>
+    <div class="monthnav" role="group" aria-label="Pilih bulan">
+      <button type="button" id="prevMonth" class="iconbtn" aria-label="Bulan sebelumnya">‹</button>
+      <span id="monthLabel" class="monthlabel">Bulan ini</span>
+      <button type="button" id="nextMonth" class="iconbtn" aria-label="Bulan berikutnya">›</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- BERANDA -->
+    <section id="view-home" class="view">
+      <article class="card card-dark hero">
+        <p class="hero-label">Total pengeluaran bulan ini</p>
+        <p class="hero-amount" id="heroExpense">Rp0</p>
+        <div class="hero-row">
+          <div>
+            <p class="hero-sub-label"><span class="dot dot-in"></span>Pemasukan</p>
+            <p class="hero-sub-value" id="heroIncome">Rp0</p>
+          </div>
+          <div>
+            <p class="hero-sub-label"><span class="dot dot-net"></span>Saldo bersih</p>
+            <p class="hero-sub-value" id="heroNet">Rp0</p>
+          </div>
+        </div>
+      </article>
+
+      <div class="bento-pair">
+        <article class="card stat">
+          <p class="stat-label">Keluar hari ini</p>
+          <p class="stat-value" id="statToday">Rp0</p>
+        </article>
+        <article class="card stat">
+          <p class="stat-label">Rata-rata keluar / hari</p>
+          <p class="stat-value" id="statAvg">Rp0</p>
+        </article>
+      </div>
+
+      <div class="section-head">
+        <h2>Target tabungan</h2>
+        <button type="button" class="linkbtn" data-goto="goals">Lihat semua</button>
+      </div>
+      <div id="homeGoals" class="goal-stack"></div>
+
+      <div class="section-head">
+        <h2>Transaksi terakhir</h2>
+        <button type="button" class="linkbtn" data-goto="history">Riwayat</button>
+      </div>
+      <div id="homeRecent"></div>
+
+      <article class="card data-card">
+        <h2 class="data-title">Datamu, di perangkatmu</h2>
+        <p class="data-text">Semua catatan tersimpan di penyimpanan lokal browser ini. Tidak ada server, tidak ada akun. Cadangkan secara berkala supaya aman saat ganti perangkat.</p>
+        <div class="data-actions">
+          <button type="button" class="chipbtn" id="exportCsv">Export CSV</button>
+          <button type="button" class="chipbtn" id="exportJson">Backup JSON</button>
+          <label class="chipbtn" for="importFile">Import JSON</label>
+          <input type="file" id="importFile" accept="application/json" hidden>
+          <button type="button" class="chipbtn chipbtn-danger" id="wipeData">Hapus semua data</button>
+        </div>
+      </article>
+    </section>
+
+    <!-- RIWAYAT -->
+    <section id="view-history" class="view" hidden>
+      <div class="chips" role="group" aria-label="Filter riwayat">
+        <button type="button" class="chip is-active" data-filter="all">Semua</button>
+        <button type="button" class="chip" data-filter="in">Pemasukan</button>
+        <button type="button" class="chip" data-filter="out">Pengeluaran</button>
+      </div>
+      <div id="historyList"></div>
+    </section>
+
+    <!-- TARGET -->
+    <section id="view-goals" class="view" hidden>
+      <div id="goalList" class="goal-stack"></div>
+      <button type="button" class="widebtn" id="addGoalBtn">+ Buat target baru</button>
+    </section>
+
+    <!-- ANALISIS -->
+    <section id="view-analysis" class="view" hidden>
+      <article class="card">
+        <h2 class="card-title">Pengeluaran per kategori</h2>
+        <div id="catBars"></div>
+      </article>
+      <article class="card">
+        <h2 class="card-title">Sumber uang keluar</h2>
+        <div id="walletBars"></div>
+      </article>
+    </section>
+  </main>
+
+  <nav class="tabbar" aria-label="Navigasi utama">
+    <button type="button" class="tab is-active" data-goto="home"><span class="tab-ico" aria-hidden="true">▦</span>Beranda</button>
+    <button type="button" class="tab" data-goto="history"><span class="tab-ico" aria-hidden="true">≣</span>Riwayat</button>
+    <button type="button" class="fab" id="fabAdd" aria-label="Catat transaksi baru">+</button>
+    <button type="button" class="tab" data-goto="goals"><span class="tab-ico" aria-hidden="true">◎</span>Target</button>
+    <button type="button" class="tab" data-goto="analysis"><span class="tab-ico" aria-hidden="true">↗</span>Analisis</button>
+  </nav>
+</div>
+
+<!-- SHEET: transaksi -->
+<div class="sheet-backdrop" id="txBackdrop" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="txTitle">
+    <div class="sheet-head">
+      <h2 id="txTitle">Catat transaksi</h2>
+      <button type="button" class="iconbtn" data-close aria-label="Tutup">✕</button>
+    </div>
+    <div class="segmented" role="group" aria-label="Jenis transaksi">
+      <button type="button" id="segOut" class="seg is-active">Pengeluaran</button>
+      <button type="button" id="segIn" class="seg">Pemasukan</button>
+    </div>
+    <label class="field-label" for="txAmount">Nominal (Rp)</label>
+    <input type="text" inputmode="numeric" id="txAmount" class="amount-input" placeholder="0" autocomplete="off">
+    <p class="field-label">Kategori</p>
+    <div class="chips" id="txCats"></div>
+    <div id="goalPickWrap" hidden>
+      <label class="field-label" for="txGoal">Untuk target</label>
+      <select id="txGoal" class="select"></select>
+    </div>
+    <label class="field-label" for="txWallet">Sumber dana</label>
+    <select id="txWallet" class="select">
+      <option>Tunai</option><option>GoPay</option><option>DANA</option>
+      <option>OVO</option><option>BCA</option><option>Mandiri</option><option>Lainnya</option>
+    </select>
+    <label class="field-label" for="txNote">Catatan</label>
+    <input type="text" id="txNote" class="text-input" placeholder="Mis. makan siang, bensin, gaji" maxlength="60">
+    <label class="field-label" for="txDate">Tanggal</label>
+    <input type="date" id="txDate" class="text-input">
+    <button type="button" class="savebtn" id="txSave">Simpan</button>
+    <p class="form-error" id="txError" hidden></p>
+  </div>
+</div>
+
+<!-- SHEET: target -->
+<div class="sheet-backdrop" id="goalBackdrop" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="goalTitle">
+    <div class="sheet-head">
+      <h2 id="goalTitle">Target baru</h2>
+      <button type="button" class="iconbtn" data-close aria-label="Tutup">✕</button>
+    </div>
+    <label class="field-label" for="goalName">Nama target</label>
+    <input type="text" id="goalName" class="text-input" placeholder="Mis. Liburan ke Bulan, Dana pensiun" maxlength="40">
+    <label class="field-label" for="goalTarget">Jumlah target (Rp)</label>
+    <input type="text" inputmode="numeric" id="goalTarget" class="amount-input" placeholder="0" autocomplete="off">
+    <label class="field-label" for="goalDate">Tanggal tujuan</label>
+    <input type="date" id="goalDate" class="text-input">
+    <button type="button" class="savebtn" id="goalSave">Simpan target</button>
+    <p class="form-error" id="goalError" hidden></p>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+</body>
+</html>
