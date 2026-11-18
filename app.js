@@ -20,7 +20,7 @@ function load() {
     if (!raw) return { txs: [], goals: [] };
     const data = JSON.parse(raw);
     if (!Array.isArray(data.txs) || !Array.isArray(data.goals)) return { txs: [], goals: [] };
-    return data;
+    return sanitizeState(data).state;
   } catch (e) {
     return { txs: [], goals: [] };
   }
@@ -30,6 +30,77 @@ function save() {
 }
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+/* ---------- import hygiene ----------
+   Data dari file backup (atau penyimpanan lama) tidak pernah dipercaya mentah:
+   setiap entri dibangun ulang kolom demi kolom. id yang tidak aman polanya
+   diganti id baru, nominal harus angka positif, jenis harus in/out, tanggal
+   harus YYYY-MM-DD. Entri yang gagal dibuang dan dihitung. */
+const ID_OK = /^[A-Za-z0-9_-]{1,64}$/;
+const DATE_OK = /^\d{4}-\d{2}-\d{2}$/;
+function cleanStr(v, max) { return typeof v === "string" ? v.slice(0, max) : ""; }
+function sanitizeGoal(g, usedIds) {
+  if (!g || typeof g !== "object") return null;
+  const target = Number(g.target);
+  const name = cleanStr(g.name, 60).trim();
+  if (!name || !Number.isFinite(target) || target <= 0) return null;
+  let id = (typeof g.id === "string" && ID_OK.test(g.id)) ? g.id : uid();
+  if (usedIds.has(id)) id = uid();
+  usedIds.add(id);
+  return {
+    id,
+    name,
+    target: Math.round(target),
+    date: (typeof g.date === "string" && DATE_OK.test(g.date)) ? g.date : ""
+  };
+}
+function sanitizeTx(t, idMap, goalIds, usedIds) {
+  if (!t || typeof t !== "object") return null;
+  if (t.type !== "in" && t.type !== "out") return null;
+  const amount = Number(t.amount);
+  if (!Number.isFinite(amount) || amount <= 0) return null;
+  if (typeof t.date !== "string" || !DATE_OK.test(t.date)) return null;
+  let id = (typeof t.id === "string" && ID_OK.test(t.id)) ? t.id : uid();
+  if (usedIds.has(id)) id = uid();
+  usedIds.add(id);
+  const tx = {
+    id,
+    type: t.type,
+    amount: Math.round(amount),
+    cat: cleanStr(t.cat, 40) || "Lainnya",
+    wallet: cleanStr(t.wallet, 40) || "Tunai",
+    note: cleanStr(t.note, 120),
+    date: t.date,
+    created: Number.isFinite(Number(t.created)) ? Number(t.created) : Date.now()
+  };
+  if (typeof t.goalId === "string") {
+    const mapped = idMap.get(t.goalId) || t.goalId;
+    if (goalIds.has(mapped)) tx.goalId = mapped;
+  }
+  return tx;
+}
+function sanitizeState(data) {
+  const idMap = new Map();
+  const goalIds = new Set();
+  const usedGoalIds = new Set();
+  const goals = [];
+  let dropped = 0;
+  (Array.isArray(data.goals) ? data.goals : []).forEach(g => {
+    const clean = sanitizeGoal(g, usedGoalIds);
+    if (!clean) { dropped++; return; }
+    if (g && typeof g.id === "string") idMap.set(g.id, clean.id);
+    goalIds.add(clean.id);
+    goals.push(clean);
+  });
+  const usedTxIds = new Set();
+  const txs = [];
+  (Array.isArray(data.txs) ? data.txs : []).forEach(t => {
+    const clean = sanitizeTx(t, idMap, goalIds, usedTxIds);
+    if (!clean) { dropped++; return; }
+    txs.push(clean);
+  });
+  return { state: { txs, goals }, dropped };
 }
 function rp(n) {
   const sign = n < 0 ? "-" : "";
@@ -248,8 +319,21 @@ document.querySelectorAll("[data-filter]").forEach(chip => {
 });
 
 /* ---------- sheets ---------- */
-function openSheet(id) { document.getElementById(id).hidden = false; }
-function closeSheet(id) { document.getElementById(id).hidden = true; }
+let lastFocused = null;
+function openSheet(id) {
+  const wrap = document.getElementById(id);
+  lastFocused = document.activeElement;
+  wrap.hidden = false;
+  const first = wrap.querySelector("input, select") || wrap.querySelector("button");
+  if (first) first.focus();
+}
+function closeSheet(id) {
+  const wrap = document.getElementById(id);
+  if (wrap.hidden) return;
+  wrap.hidden = true;
+  if (lastFocused && document.contains(lastFocused)) lastFocused.focus();
+  lastFocused = null;
+}
 document.querySelectorAll("[data-close]").forEach(btn => {
   btn.addEventListener("click", () => {
     closeSheet("txBackdrop"); closeSheet("goalBackdrop");
@@ -261,7 +345,18 @@ document.querySelectorAll("[data-close]").forEach(btn => {
   });
 });
 document.addEventListener("keydown", e => {
-  if (e.key === "Escape") { closeSheet("txBackdrop"); closeSheet("goalBackdrop"); }
+  if (e.key === "Escape") { closeSheet("txBackdrop"); closeSheet("goalBackdrop"); return; }
+  if (e.key !== "Tab") return;
+  const open = ["txBackdrop", "goalBackdrop"]
+    .map(i => document.getElementById(i))
+    .find(w => !w.hidden);
+  if (!open) return;
+  const items = [...open.querySelectorAll("button, input, select, a[href]")]
+    .filter(el => !el.disabled && el.offsetParent !== null);
+  if (items.length === 0) return;
+  const firstEl = items[0], lastEl = items[items.length - 1];
+  if (e.shiftKey && document.activeElement === firstEl) { e.preventDefault(); lastEl.focus(); }
+  else if (!e.shiftKey && document.activeElement === lastEl) { e.preventDefault(); firstEl.focus(); }
 });
 
 /* amount inputs: digits only, grouped while typing */
@@ -385,7 +480,12 @@ document.getElementById("exportCsv").addEventListener("click", () => {
   [...state.txs].sort((a, b) => a.created - b.created).forEach(t => {
     rows.push([t.date, t.note || "", t.cat, t.wallet, t.type === "in" ? "masuk" : "keluar", t.amount]);
   });
-  const csv = rows.map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(",")).join("\n");
+  const cell = c => {
+    let s = String(c);
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+    return '"' + s.replace(/"/g, '""') + '"';
+  };
+  const csv = rows.map(r => r.map(cell).join(",")).join("\n");
   download("duitkita-transaksi.csv", csv, "text/csv");
   toast("CSV diunduh");
 });
@@ -402,8 +502,12 @@ document.getElementById("importFile").addEventListener("change", e => {
       const data = JSON.parse(reader.result);
       if (!Array.isArray(data.txs) || !Array.isArray(data.goals)) throw new Error("shape");
       if (!confirm("Import akan mengganti semua data saat ini. Lanjut?")) return;
-      state = data;
-      save(); render(); toast("Data diimpor");
+      const clean = sanitizeState(data);
+      state = clean.state;
+      save(); render();
+      toast(clean.dropped > 0
+        ? "Data diimpor, " + clean.dropped + " entri tidak valid dibuang"
+        : "Data diimpor");
     } catch (err) {
       alert("File backup tidak valid.");
     }

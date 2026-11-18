@@ -8,10 +8,10 @@
   --line:#F0E3C4;
   --ink:#1A2340;
   --ink-soft:#5A6076;
-  --coral:#FF5A3C;
-  --coral-dark:#E8482B;
-  --green:#1F9D55;
-  --red:#D93A2B;
+  --coral:#D63E1C;
+  --coral-dark:#B93215;
+  --green:#177A3F;
+  --red:#C22F21;
   --radius:24px;
   --shadow:0 1px 0 rgba(255,255,255,.9) inset, 0 10px 24px rgba(26,35,64,.08), 0 2px 6px rgba(26,35,64,.06);
   --shadow-hero:0 18px 34px rgba(26,35,64,.28), 0 3px 8px rgba(26,35,64,.18);
@@ -43,7 +43,7 @@ input,select{font:inherit;color:inherit}
 .monthnav{display:flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:4px;box-shadow:var(--shadow)}
 .monthlabel{font-size:13px;font-weight:700;min-width:86px;text-align:center}
 .iconbtn{
-  width:34px;height:34px;border-radius:50%;border:0;background:transparent;
+  width:44px;height:44px;border-radius:50%;border:0;background:transparent;
   font-size:18px;line-height:1;display:grid;place-items:center;
 }
 .iconbtn:hover{background:#F7EDD3}
@@ -100,7 +100,7 @@ input,select{font:inherit;color:inherit}
 .goal-actions{display:flex;gap:8px;margin-top:12px}
 .mini-btn{
   border:1px solid var(--line);background:var(--paper);border-radius:999px;
-  padding:7px 14px;font-weight:700;font-size:13px;min-height:36px;
+  padding:7px 14px;font-weight:700;font-size:13px;min-height:44px;
 }
 .mini-btn:hover{background:#FBEFCB}
 .mini-btn.danger{color:var(--red)}
@@ -116,7 +116,7 @@ input,select{font:inherit;color:inherit}
 .chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
 .chip{
   border:1px solid var(--line);background:var(--card);border-radius:999px;
-  padding:8px 14px;font-weight:700;font-size:13px;min-height:40px;box-shadow:var(--shadow);
+  padding:8px 14px;font-weight:700;font-size:13px;min-height:44px;box-shadow:var(--shadow);
 }
 .chip.is-active{background:var(--ink);color:#FFF6DE;border-color:var(--ink)}
 
@@ -156,7 +156,7 @@ input,select{font:inherit;color:inherit}
 .fab{
   width:56px;height:56px;border-radius:50%;border:0;background:var(--coral);color:#fff;
   font-size:30px;font-weight:700;line-height:1;display:grid;place-items:center;
-  box-shadow:0 12px 24px rgba(255,90,60,.4);margin-top:-22px;
+  box-shadow:0 12px 24px rgba(214,62,28,.4);margin-top:-22px;
 }
 .fab:hover{background:var(--coral-dark)}
 .fab:active{transform:scale(.95)}
@@ -188,7 +188,7 @@ input,select{font:inherit;color:inherit}
 .savebtn{
   width:100%;border:0;background:var(--coral);color:#fff;border-radius:999px;
   padding:14px;font-size:16px;font-weight:800;margin-top:20px;min-height:52px;
-  box-shadow:0 10px 20px rgba(255,90,60,.35);
+  box-shadow:0 10px 20px rgba(214,62,28,.35);
 }
 .savebtn:hover{background:var(--coral-dark)}
 .form-error{color:var(--red);font-weight:700;font-size:13px;margin:10px 0 0}
