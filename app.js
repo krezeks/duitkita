@@ -521,4 +521,30 @@ document.getElementById("wipeData").addEventListener("click", () => {
   save(); render(); toast("Semua data dihapus");
 });
 
+/* ---------- tema tampilan ----------
+   Pilihan tema disimpan di kunci terpisah dari data keuangan: mengganti tema
+   tidak menyentuh catatan, dan menghapus data tidak mereset tema. */
+const THEME_KEY = "duitkita-theme";
+const THEME_NAMES = ["krem", "kopi", "laut", "malam"];
+const THEME_PAPER = { krem: "#FFF8E7", kopi: "#FAF1E0", laut: "#EFF6F7", malam: "#151A29" };
+function applyTheme(name) {
+  const t = THEME_NAMES.includes(name) ? name : "krem";
+  document.documentElement.dataset.theme = t;
+  try { localStorage.setItem(THEME_KEY, t); } catch (e) { /* abaikan */ }
+  document.querySelectorAll("[data-theme-pick]").forEach(btn => {
+    const active = btn.dataset.themePick === t;
+    btn.classList.toggle("is-active", active);
+    btn.setAttribute("aria-pressed", active ? "true" : "false");
+  });
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute("content", THEME_PAPER[t]);
+}
+document.querySelectorAll("[data-theme-pick]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    applyTheme(btn.dataset.themePick);
+    toast("Tema diganti: " + btn.textContent.trim());
+  });
+});
+applyTheme(document.documentElement.dataset.theme || "krem");
+
 render();

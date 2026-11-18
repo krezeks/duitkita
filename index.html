@@ -5,8 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>DuitKita · Catatan Keuangan</title>
 <meta name="description" content="Catatan keuangan pribadi: data tersimpan di perangkatmu, tanpa server, tanpa akun.">
-<link rel="stylesheet" href="styles.css?v=4">
-<script src="app.js?v=4" defer></script>
+<meta name="theme-color" content="#FFF8E7">
+<script>try{var t=localStorage.getItem("duitkita-theme");if(t){document.documentElement.dataset.theme=t;}}catch(e){}</script>
+<link rel="stylesheet" href="styles.css?v=5">
+<script src="app.js?v=5" defer></script>
 </head>
 <body>
 <div class="phone">
@@ -63,6 +65,17 @@
         <button type="button" class="linkbtn" data-goto="history">Riwayat</button>
       </div>
       <div id="homeRecent"></div>
+
+      <article class="card theme-card">
+        <h2 class="data-title">Tema tampilan</h2>
+        <p class="data-text">Pilih rasa yang kamu suka. Pilihan tersimpan di perangkat ini dan tidak ikut terhapus saat data dibersihkan.</p>
+        <div class="theme-grid" role="group" aria-label="Pilih tema tampilan">
+          <button type="button" class="theme-pick" data-theme-pick="krem"><span class="sw" aria-hidden="true"><i style="background:#FFF8E7"></i><i style="background:#1A2340"></i><i style="background:#D63E1C"></i></span>Krem</button>
+          <button type="button" class="theme-pick" data-theme-pick="kopi"><span class="sw" aria-hidden="true"><i style="background:#FAF1E0"></i><i style="background:#33241A"></i><i style="background:#A85B12"></i></span>Kopi</button>
+          <button type="button" class="theme-pick" data-theme-pick="laut"><span class="sw" aria-hidden="true"><i style="background:#EFF6F7"></i><i style="background:#0F2E3D"></i><i style="background:#0B7285"></i></span>Laut</button>
+          <button type="button" class="theme-pick" data-theme-pick="malam"><span class="sw" aria-hidden="true"><i style="background:#151A29"></i><i style="background:#F5EFDF"></i><i style="background:#FF7A59"></i></span>Malam</button>
+        </div>
+      </article>
 
       <article class="card data-card">
         <h2 class="data-title">Datamu, di perangkatmu</h2>
