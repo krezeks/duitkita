@@ -185,7 +185,7 @@ function renderHistory() {
   groups.forEach((items, date) => {
     const total = items.reduce((s, t) => s + (t.type === "in" ? t.amount : -t.amount), 0);
     const label = DAY_FMT.format(new Date(date + "T12:00:00"));
-    html += '<p class="tx-group-label"><span>' + esc(label) + "</span><span>" + (total < 0 ? "-" : "+") + rp(total) + "</span></p>";
+    html += '<p class="tx-group-label"><span>' + esc(label) + "</span><span>" + (total < 0 ? "" : "+") + rp(total) + "</span></p>";
     html += items.map(txRow).join("");
   });
   list.innerHTML = html;
