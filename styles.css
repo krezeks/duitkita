@@ -17,6 +17,7 @@
   --shadow-hero:0 18px 34px rgba(26,35,64,.28), 0 3px 8px rgba(26,35,64,.18);
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{margin:0;padding:0}
 body{
   background:#F3E9CF;
@@ -161,6 +162,7 @@ input,select{font:inherit;color:inherit}
 .fab:active{transform:scale(.95)}
 
 /* sheets */
+.sheet-backdrop[hidden]{display:none}
 .sheet-backdrop{
   position:fixed;inset:0;background:rgba(26,35,64,.45);z-index:30;
   display:flex;align-items:flex-end;justify-content:center;
